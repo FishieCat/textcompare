@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>textcompare</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      overflow-y: auto;
+      overflow-x: hidden;
+      font-family: sans-serif;
+      background-color: #fff;
+      color: #000;
+    }
+    #header {
+      background: inherit;
+  padding: 0.5em 1em;
+  display: flex;
+  justify-content: space-between;
+      font-size: 0.9em;
+    }
+    #container {
+      height: calc(100vh - 2.5em);
+      min-height: 80%;
+    }
+    .switch {
+      cursor: pointer;
+      user-select: none;
+      padding: 0.3em 0.6em;
+      font-size: 0.8em;
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.44.0/min/vs/loader.js"></script>
+</head>
+<body>
+  <div id="header">
+    <div>textcompare</div>
+    <div class="switch" id="themeToggle">🌓</div>
+  </div>
+
+  <div id="container"></div>
+
+  <script>
+    let dark = false;
+    const themeToggle = document.getElementById("themeToggle");
+
+    themeToggle.onclick = () => {
+      dark = !dark;
+      monaco.editor.setTheme(dark ? "vs-dark" : "vs");
+      document.body.style.backgroundColor = dark ? "#111" : "#fff";
+      document.body.style.color = dark ? "#ccc" : "#000";
+    };
+
+    require.config({ paths: { vs: "https://cdn.jsdelivr.net/npm/monaco-editor@0.44.0/min/vs" } });
+
+    require(["vs/editor/editor.main"], function () {
+      const container = document.getElementById("container");
+
+      const originalModel = monaco.editor.createModel("", "text/plain");
+      const modifiedModel = monaco.editor.createModel("", "text/plain");
+
+      const diffEditor = monaco.editor.createDiffEditor(container, {
+        automaticLayout: true,
+        theme: "vs",
+        renderSideBySide: true,
+        readOnly: false,
+        scrollBeyondLastLine: false,
+        originalEditable: true,
+        scrollbar: {
+            alwaysConsumeMouseWheel: false
+        }
+      });
+
+      diffEditor.setModel({
+        original: originalModel,
+        modified: modifiedModel,
+      });
+
+diffEditor.getOriginalEditor().updateOptions({
+  wordWrap: "on",
+  horizontalScrolling: false,
+  scrollBeyondLastColumn: 0,
+});
+
+diffEditor.getModifiedEditor().updateOptions({
+  wordWrap: "on",
+  horizontalScrolling: false,
+  scrollBeyondLastColumn: 0,
+});
+
+      // Ensure editor height expands with content
+      function updateEditorHeight() {
+        const originalHeight = Math.max(
+          originalModel.getLineCount() * 20,
+          300
+        );
+        const modifiedHeight = Math.max(
+          modifiedModel.getLineCount() * 20,
+          300
+        );
+        const height = Math.max(originalHeight, modifiedHeight) + 100;
+        container.style.height = `${height}px`;
+        diffEditor.layout();
+      }
+
+      originalModel.onDidChangeContent(updateEditorHeight);
+      modifiedModel.onDidChangeContent(updateEditorHeight);
+      updateEditorHeight();
+    });
+  </script>
+</body>
+</html>

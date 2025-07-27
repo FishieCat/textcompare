@@ -148,15 +148,31 @@
       setTheme(dark);
 
       // Save values on change
-      originalModel.onDidChangeContent(() => {
+      function debounce(fn, delay) {
+        let timer = null;
+        return function(...args) {
+          clearTimeout(timer);
+          timer = setTimeout(() => fn.apply(this, args), delay);
+        }
+      }
+
+      const saveLeftDebounced = debounce(() => {
         localStorage.setItem("textcompare-left", originalModel.getValue());
-        updateEditorHeight();
-      });
-      modifiedModel.onDidChangeContent(() => {
+      }, 500);
+
+      const saveRightDebounced = debounce(() => {
         localStorage.setItem("textcompare-right", modifiedModel.getValue());
+      }, 500);
+
+      originalModel.onDidChangeContent(() => {
+        saveLeftDebounced();
         updateEditorHeight();
       });
 
+      modifiedModel.onDidChangeContent(() => {
+        saveRightDebounced();
+        updateEditorHeight();
+      });
       // Ensure editor height expands with content
       function updateEditorHeight() {
         const originalHeight = Math.max(originalModel.getLineCount() * 20, 300);

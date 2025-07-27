@@ -1,30 +1,69 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
+  <script>
+    // Early theme setting to avoid flash
+    (function () {
+      var theme = localStorage.getItem('textcompare-theme');
+      if (theme === 'dark') {
+        document.documentElement.style.background = '#111';
+        document.documentElement.style.color = '#ccc';
+        document.body.style.background = '#111';
+        document.body.style.color = '#ccc';
+      } else {
+        document.documentElement.style.background = '#fff';
+        document.documentElement.style.color = '#000';
+        document.body.style.background = '#fff';
+        document.body.style.color = '#000';
+      }
+    })();
+  </script>
   <meta charset="UTF-8" />
   <title>textcompare</title>
   <style>
-    html, body {
+    html,
+    body {
       margin: 0;
       padding: 0;
       height: 100%;
       overflow-y: auto;
       overflow-x: hidden;
       font-family: sans-serif;
-      background-color: #fff;
-      color: #000;
+      transition: background 0.2s, color 0.2s;
+      /* Don't set background-color or color here! Let the JS do it */
     }
+
     #header {
       background: inherit;
-  padding: 0.5em 1em;
-  display: flex;
-  justify-content: space-between;
+      padding: 0.5em 1em;
+      display: flex;
+      justify-content: space-between;
       font-size: 0.9em;
+      align-items: center;
     }
+
+    #branding {
+      display: flex;
+      align-items: center;
+      gap: 1em;
+    }
+
+    #clearBtn {
+      font-size: 0.8em;
+      padding: 0.2em 0.6em;
+      cursor: pointer;
+      background: #eee;
+      border: 1px solid #ccc;
+      border-radius: 3px;
+    }
+
     #container {
       height: calc(100vh - 2.5em);
       min-height: 80%;
+      /* Monaco will fill this, but you can force its background too if needed */
     }
+
     .switch {
       cursor: pointer;
       user-select: none;
@@ -34,9 +73,13 @@
   </style>
   <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.44.0/min/vs/loader.js"></script>
 </head>
+
 <body>
   <div id="header">
-    <div>textcompare</div>
+    <div id="branding">
+      <span>textcompare</span>
+      <button id="clearBtn" title="Clear both editors">clear</button>
+    </div>
     <div class="switch" id="themeToggle">🌓</div>
   </div>
 
@@ -46,30 +89,41 @@
     let dark = false;
     const themeToggle = document.getElementById("themeToggle");
 
-    themeToggle.onclick = () => {
-      dark = !dark;
+    function setTheme(isDark) {
+      dark = isDark;
       monaco.editor.setTheme(dark ? "vs-dark" : "vs");
-      document.body.style.backgroundColor = dark ? "#111" : "#fff";
+      document.body.style.background = dark ? "#111" : "#fff";
       document.body.style.color = dark ? "#ccc" : "#000";
-    };
+      document.documentElement.style.background = dark ? "#111" : "#fff";
+      document.documentElement.style.color = dark ? "#ccc" : "#000";
+      localStorage.setItem("textcompare-theme", dark ? "dark" : "light");
+    }
+
+    // Load theme from localStorage
+    const storedTheme = localStorage.getItem("textcompare-theme");
+    if (storedTheme) dark = storedTheme === "dark";
 
     require.config({ paths: { vs: "https://cdn.jsdelivr.net/npm/monaco-editor@0.44.0/min/vs" } });
 
     require(["vs/editor/editor.main"], function () {
       const container = document.getElementById("container");
 
-      const originalModel = monaco.editor.createModel("", "text/plain");
-      const modifiedModel = monaco.editor.createModel("", "text/plain");
+      // Load saved values
+      const savedLeft = localStorage.getItem("textcompare-left") || "";
+      const savedRight = localStorage.getItem("textcompare-right") || "";
+
+      const originalModel = monaco.editor.createModel(savedLeft, "text/plain");
+      const modifiedModel = monaco.editor.createModel(savedRight, "text/plain");
 
       const diffEditor = monaco.editor.createDiffEditor(container, {
         automaticLayout: true,
-        theme: "vs",
+        theme: dark ? "vs-dark" : "vs",
         renderSideBySide: true,
         readOnly: false,
         scrollBeyondLastLine: false,
         originalEditable: true,
         scrollbar: {
-            alwaysConsumeMouseWheel: false
+          alwaysConsumeMouseWheel: false
         }
       });
 
@@ -78,28 +132,35 @@
         modified: modifiedModel,
       });
 
-diffEditor.getOriginalEditor().updateOptions({
-  wordWrap: "on",
-  horizontalScrolling: false,
-  scrollBeyondLastColumn: 0,
-});
+      diffEditor.getOriginalEditor().updateOptions({
+        wordWrap: "on",
+        horizontalScrolling: false,
+        scrollBeyondLastColumn: 0,
+      });
 
-diffEditor.getModifiedEditor().updateOptions({
-  wordWrap: "on",
-  horizontalScrolling: false,
-  scrollBeyondLastColumn: 0,
-});
+      diffEditor.getModifiedEditor().updateOptions({
+        wordWrap: "on",
+        horizontalScrolling: false,
+        scrollBeyondLastColumn: 0,
+      });
+
+      // Theme initialization
+      setTheme(dark);
+
+      // Save values on change
+      originalModel.onDidChangeContent(() => {
+        localStorage.setItem("textcompare-left", originalModel.getValue());
+        updateEditorHeight();
+      });
+      modifiedModel.onDidChangeContent(() => {
+        localStorage.setItem("textcompare-right", modifiedModel.getValue());
+        updateEditorHeight();
+      });
 
       // Ensure editor height expands with content
       function updateEditorHeight() {
-        const originalHeight = Math.max(
-          originalModel.getLineCount() * 20,
-          300
-        );
-        const modifiedHeight = Math.max(
-          modifiedModel.getLineCount() * 20,
-          300
-        );
+        const originalHeight = Math.max(originalModel.getLineCount() * 20, 300);
+        const modifiedHeight = Math.max(modifiedModel.getLineCount() * 20, 300);
         const height = Math.max(originalHeight, modifiedHeight) + 100;
         container.style.height = `${height}px`;
         diffEditor.layout();
@@ -108,7 +169,20 @@ diffEditor.getModifiedEditor().updateOptions({
       originalModel.onDidChangeContent(updateEditorHeight);
       modifiedModel.onDidChangeContent(updateEditorHeight);
       updateEditorHeight();
+
+      document.getElementById("clearBtn").onclick = function () {
+        originalModel.setValue("");
+        modifiedModel.setValue("");
+        localStorage.setItem("textcompare-left", "");
+        localStorage.setItem("textcompare-right", "");
+      };
+
+      themeToggle.onclick = () => {
+        setTheme(!dark);
+      };
+
     });
   </script>
 </body>
+
 </html>

@@ -144,6 +144,9 @@
         scrollBeyondLastColumn: 0,
       });
 
+			// don't switch to top/bottom
+			diffEditor.updateOptions({ renderSideBySide: true });
+
       // Theme initialization
       setTheme(dark);
 
